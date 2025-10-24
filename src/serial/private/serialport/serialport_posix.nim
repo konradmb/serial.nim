@@ -710,12 +710,16 @@ proc read*(port: SerialPort, buff: pointer, len: int32): int32 =
         else:
           break
       else:
-        var numRead = posix.read(port.handle, cast[pointer](cast[int](buff)+totalNumRead), int(len-totalNumRead))
+        if FD_ISSET(port.handle, selectSet) != 0:
+          var numRead = posix.read(port.handle, cast[pointer](cast[int](buff)+totalNumRead), int(len-totalNumRead))
 
-        if numRead == -1:
-          raiseOSError(osLastError())
+          if numRead == 0:
+            raise newException(InvalidSerialPortStateError, "Port probably disconnected")
+          if numRead == -1:
+            raiseOSError(osLastError())
 
-        totalNumRead += numRead
+          totalNumRead += numRead
+        else: raiseOSError(osLastError())
 
       timeLeft = endTime - getPosixMs()
           
